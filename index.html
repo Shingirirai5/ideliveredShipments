@@ -10,8 +10,6 @@
 <link rel="stylesheet" href="https://code.jquery.com/ui/1.12.1/themes/base/jquery-ui.css">
 <link href="https://cdn.jsdelivr.net/npm/select2@4.1.0/dist/css/select2.min.css" rel="stylesheet" />
 <script src="https://cdn.jsdelivr.net/npm/select2@4.1.0/dist/js/select2.min.js"></script>
-<script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
-<script src="https://cdn.jsdelivr.net/npm/select2@4.1.0/dist/js/select2.min.js"></script>
 
 <title>Freight Quote&trade; | Online Free Freight Quotes</title>
 <style>
@@ -26,6 +24,23 @@
   .rounded-circle {
     border-radius: 50%;
   }
+
+  .suggestions {
+  position: absolute;
+  z-index: 2; /* Higher than the rest of the rows */
+  background-color: white;
+  width: 93%;
+  max-height: 200px;
+  overflow-y: auto;
+}
+
+.suggestion {
+  padding: 8px;
+  cursor: pointer;
+}
+
+/* Rest of your styling for form elements goes here */
+
 </style>
 </head>
 
@@ -163,10 +178,9 @@
      
   <div class="row">
     <div class="col-md-5 mb-3">
-      <label for="country">Country</label>
-      <select class="custom-select d-block w-100" id="country" required>
-        <option value="">Select an option</option>
-      </select>
+      <label for="originCountryInput">Country</label>
+      <input type="text" class="form-control" id="originCountryInput" placeholder="Type a country name" />
+      <div id="originCountrySuggestions" class="suggestions"></div>
       <div class="invalid-feedback">
         Please select a valid country.
       </div>
@@ -197,15 +211,14 @@
 
         <div class="row">
           <div class="col-md-5 mb-3">
-            <label for="country">Country</label>
-            <select class="custom-select d-block w-100" id="country" required>
-              <option value="">Select an option</option>
-              <option>United States</option>
-            </select>
+            <label for="destinationCountryInput">Country</label>
+            <input type="text" class="form-control" id="destinationCountryInput" placeholder="Type a country name" />
+            <div id="destinationCountrySuggestions" class="suggestions"></div>
             <div class="invalid-feedback">
               Please select a valid country.
             </div>
           </div>
+          
           <div class="col-md-4 mb-3">
             <label for="state">City or Port</label>
             <select class="custom-select d-block w-100" id="state" required>
@@ -249,40 +262,25 @@
 
         <div class="row">
           <div class="col-md-6 mb-3">
-            <label for="firstName">First Name</label>
-            <input type="text" class="form-control" id="firstName" placeholder="Jane" required>
+           
+            <input type="text" class="form-control" id="firstName" placeholder="First Name" required>
           </div>
           <div class="col-md-6 mb-3">
-            <label for="surname">Last Name</label>
-            <input type="text" class="form-control" id="surname" placeholder="Doe" required>
+            
+            <input type="text" class="form-control" id="surname" placeholder="Last Name" required>
+          </div>
+        </div>
+        <br>
+        <div class="row">
+          <div class="col-md-6 mb-3">
+           
+            <input type="text" class="form-control" id="firstName" placeholder="Contact Number" required>
+          </div>
+          <div class="col-md-6 mb-3">
+    <input type="email" class="form-control" id="exampleInputEmail1" placeholder="Email address" aria-describedby="emailHelp">
           </div>
         </div>
 
-        <div class="row">
-          <div class="col-md-6 mb-3">
-            <label for="firstName">Contact Number</label>
-            <input type="text" class="form-control" id="firstName" placeholder="+0123 345 678" required>
-          </div>
-          <div class="col-md-6 mb-3">
-            <label for="exampleInputEmail1">Email address</label>
-    <input type="email" class="form-control" id="exampleInputEmail1" placeholder="Jem@email.com" aria-describedby="emailHelp">
-          </div>
-        </div>
-
-        <div class="row">
-          <div class="col-md-6 mb-3">
-            <label for="firstName">Company</label>
-            <input type="text" class="form-control" id="firstName" placeholder="CompayABC">
-          </div>
-          <div class="col-md-6 mb-3">
-            <label for="product">Country</label>
-            <select class="custom-select d-block w-100" id="product" required>
-              <option value="">Select an option</option>
-              <option>Product 1</option>
-              <option>Product 2</option>
-            </select>
-          </div>
-        </div>
 
        <form>
   
@@ -340,28 +338,57 @@
 
 
 <script>
-  $(document).ready(function() {
-    $('#country').select2({
-      placeholder: 'Search for a country',
-      allowClear: true, // Add a clear button
-      minimumInputLength: 1, // Minimum characters to start searching
-      ajax: {
-        url: 'https://restcountries.com/v2/all',
-        dataType: 'json',
-        processResults: function(data) {
-          return {
-            results: data.map(function(country) {
-              return {
-                id: country.name,
-                text: country.name
-              };
-            })
-          };
-        }
+  const originCountryInput = document.getElementById('originCountryInput');
+const originCountrySuggestions = document.getElementById('originCountrySuggestions');
+
+const destinationCountryInput = document.getElementById('destinationCountryInput');
+const destinationCountrySuggestions = document.getElementById('destinationCountrySuggestions');
+
+function setupCountryInput(inputElement, suggestionsElement) {
+  inputElement.addEventListener('input', async () => {
+    const inputValue = inputElement.value.trim();
+
+    if (inputValue.length === 0) {
+      suggestionsElement.innerHTML = '';
+      return;
+    }
+
+    try {
+      const response = await fetch(`https://restcountries.com/v3.1/name/${inputValue}`);
+      const data = await response.json();
+
+      if (data.length === 0) {
+        suggestionsElement.innerHTML = 'No matching countries found.';
+      } else {
+        suggestionsElement.innerHTML = data.map(country => `<div class="suggestion">${country.name.common}</div>`).join('');
+
+        const suggestionElements = suggestionsElement.querySelectorAll('.suggestion');
+        suggestionElements.forEach(suggestion => {
+          suggestion.addEventListener('click', () => {
+            inputElement.value = suggestion.textContent;
+            suggestionsElement.innerHTML = ''; // Clear suggestions
+          });
+        });
       }
-    });
+    } catch (error) {
+      console.error('Error fetching data:', error);
+    }
   });
+}
+
+setupCountryInput(originCountryInput, originCountrySuggestions);
+setupCountryInput(destinationCountryInput, destinationCountrySuggestions);
+
+document.addEventListener('click', event => {
+  if (!originCountrySuggestions.contains(event.target) && !originCountryInput.contains(event.target) &&
+      !destinationCountrySuggestions.contains(event.target) && !destinationCountryInput.contains(event.target)) {
+    originCountrySuggestions.innerHTML = '';
+    destinationCountrySuggestions.innerHTML = '';
+  }
+});
+
 </script>
+
 
   
 </body>
